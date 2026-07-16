@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mystic Realms</title>
+    <style>
+        body {
+            margin: 0;
+            background-color: #1a1a1a;
+            color: #ffffff;
+            font-family: sans-serif;
+            overflow: hidden;
+        }
+        #mainMenu, #upgradeMenu {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(15, 20, 15, 0.95);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+        #upgradeMenu {
+            display: none;
+            z-index: 101;
+            background: rgba(0, 0, 0, 0.85);
+        }
+        h1 {
+            font-size: 4rem;
+            color: #f1c40f;
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px rgba(241, 196, 15, 0.5);
+        }
+        p {
+            font-size: 1.2rem;
+            max-width: 600px;
+            text-align: center;
+            line-height: 1.6;
+            margin-bottom: 30px;
+        }
+        .btn {
+            padding: 15px 40px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            background-color: #27ae60;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.1s;
+            margin: 10px;
+        }
+        .btn:hover {
+            background-color: #2ecc71;
+            transform: scale(1.05);
+        }
+        .upgrade-container {
+            display: flex;
+            gap: 20px;
+        }
+        .upgrade-card {
+            background: #2c3e50;
+            border: 2px solid #f1c40f;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            width: 200px;
+            transition: transform 0.2s;
+        }
+        .upgrade-card:hover {
+            transform: scale(1.1);
+            background: #34495e;
+        }
+        .upgrade-card h3 {
+            color: #f1c40f;
+            margin-top: 0;
+        }
+        #ui {
+            display: none;
+            position: absolute;
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 14px;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+            background: rgba(0, 0, 0, 0.85);
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: 2px solid #333;
+            z-index: 10;
+            width: 90%;
+            max-width: 950px;
+        }
+        #hotbar {
+            display: none;
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            gap: 10px;
+            background: rgba(0, 0, 0, 0.85);
+            padding: 10px;
+            border-radius: 8px;
+            border: 2px solid #333;
+            z-index: 10;
+        }
+        .hotbar-slot {
+            width: 60px;
+            height: 60px;
+            background: #2c3e50;
+            border: 2px solid #7f8c8d;
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 12px;
+            color: #fff;
+            position: relative;
+            transition: border-color 0.2s;
+        }
+        .hotbar-slot.active {
+            border-color: #f1c40f;
+        }
+        .hotbar-slot:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #111;
+            color: #fff;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            white-space: nowrap;
+            border: 1px solid #444;
+            pointer-events: none;
+        }
+        .highlight { color: #f1c40f; font-weight: bold; }
+        .action { color: #e74c3c; font-weight: bold; }
+        .stat-health { color: #e74c3c; font-weight: bold; }
+        .stat-hunger { color: #e67e22; font-weight: bold; }
+        .stat-xp { color: #9b59b6; font-weight: bold; }
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+            cursor: crosshair;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="mainMenu">
+        <h1>Mystic Realms</h1>
+        <p>
+            <strong>Controls:</strong> WASD to move. Press E near wild pets to tame them (Max 3 equipped). Press B to change biomes manually.<br><br>
+            <strong>Mechanics:</strong> Biomes swap every 5 minutes and regenerate resources. Trees, rocks, and berry bushes have durability. Use the hotbar to choose what to build!
+        </p>
+        <button id="playBtn" class="btn">PLAY</button>
+    </div>
+
+    <div id="upgradeMenu">
+        <h1>Level Up!</h1>
+        <p>Choose an upgrade:</p>
+        <div class="upgrade-container">
+            <div class="upgrade-card" onclick="applyUpgrade('speed')">
+                <h3>Agility</h3>
+                <p>Increase Movement Speed</p>
+            </div>
+            <div class="upgrade-card" onclick="applyUpgrade('health')">
+                <h3>Vitality</h3>
+                <p>Increase Max Health & Heal</p>
+            </div>
+            <div class="upgrade-card" onclick="applyUpgrade('pet')">
+                <h3>Companion</h3>
+                <p>Increase Pet Attack Speed</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="ui">
+        <span>Lvl: <span id="lvlCount" class="stat-xp">1</span></span>
+        <span>XP: <span id="xpText" class="stat-xp">0/100</span></span>
+        <span>HP: <span id="hpCount" class="stat-health">100</span></span>
+        <span>Food: <span id="foodCount" class="stat-hunger">100</span></span>
+        <span>Wood: <span id="woodCount">0</span></span>
+        <span>Stone: <span id="stoneCount">0</span></span>
+        <span>Biome: <span id="biomeText" class="highlight">Enchanted Forest</span></span>
+        <span>Swap In: <span id="biomeTimerText">300s</span></span>
+    </div>
+
+    <div id="hotbar">
+        <div class="hotbar-slot active" data-build="playerWall" data-tooltip="Wall (5 Wood, 5 Stone)" onclick="selectBuild('playerWall', this)">Wall</div>
+        <div class="hotbar-slot" data-build="tower" data-tooltip="Tower (10 Stone)" onclick="selectBuild('tower', this)">Tower</div>
+    </div>
+    
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const mainMenu = document.getElementById('mainMenu');
+        const upgradeMenu = document.getElementById('upgradeMenu');
+        const playBtn = document.getElementById('playBtn');
+        const uiDiv = document.getElementById('ui');
+        const hotbarDiv = document.getElementById('hotbar');
+        
+        const woodUI = document.getElementById('woodCount');
+        const stoneUI = document.getElementById('stoneCount');
+        const hpUI = document.getElementById('hpCount');
+        const foodUI = document.getElementById('foodCount');
+        const biomeUI = document.getElementById('biomeText');
+        const biomeTimerUI = document.getElementById('biomeTimerText');
+        const lvlUI = document.getElementById('lvlCount');
+        const xpUI = document.getElementById('xpText');
+
+        let isPlaying = false;
+        let isPaused = false;
+        let inventory = { wood: 0, stone: 0 };
+        let playerStats = { level: 1, xp: 0, maxXp: 100, petAttackSpeed: 1.5 };
+        let selectedBuild = 'playerWall';
+        let biomeTimer = 300;
+
+        const keys = { w: false, a: false, s: false, d: false, b: false, e: false };
+        let bKeyWasDown = false;
+        let eKeyWasDown = false;
+
+        const WORLD_WIDTH = 5000;
+        const WORLD_HEIGHT = 5000;
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            if (camera) {
+                camera.width = canvas.width;
+                camera.height = canvas.height;
+            }
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        window.addEventListener('keydown', (e) => { 
+            if(e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = true; 
+        });
+        window.addEventListener('keyup', (e) => { 
+            if(e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = false; 
+        });
+
+        playBtn.addEventListener('click', () => {
+            mainMenu.style.display = 'none';
+            uiDiv.style.display = 'flex';
+            hotbarDiv.style.display = 'flex';
+            isPlaying = true;
+        });
+
+        window.selectBuild = function(type, element) {
+            selectedBuild = type;
+            document.querySelectorAll('.hotbar-slot').forEach(s => s.classList.remove('active'));
+            element.classList.add('active');
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            if (!isPlaying || isPaused) return;
+            const worldX = e.clientX + camera.x;
+            const worldY = e.clientY + camera.y;
+            const snapX = worldX - (worldX % 40);
+            const snapY = worldY - (worldY % 40);
+
+            if (selectedBuild === 'playerWall') {
+                if (inventory.wood >= 5 && inventory.stone >= 5) {
+                    mapStructures.push(new Structure(snapX, snapY, 40, 40, 'playerWall'));
+                    inventory.wood -= 5;
+                    inventory.stone -= 5;
+                    woodUI.innerText = inventory.wood;
+                    stoneUI.innerText = inventory.stone;
+                }
+            } else if (selectedBuild === 'tower') {
+                if (inventory.stone >= 10) {
+                    mapStructures.push(new Structure(snapX, snapY, 60, 60, 'tower'));
+                    inventory.stone -= 10;
+                    stoneUI.innerText = inventory.stone;
+                }
+            }
+        });
+
+        const biomes = [
+            { name: 'Enchanted Forest', bg: '#2b3a24', tree: '#8b5a2b', rock: '#7f8c8d', water: '#2980b9' },
+            { name: 'Ashlands', bg: '#3a2424', tree: '#4a2b2b', rock: '#5c4d4d', water: '#c0392b' },
+            { name: 'Frozen Tundra', bg: '#d4e6f1', tree: '#5dade2', rock: '#aeb6bf', water: '#1abc9c' }
+        ];
+        let currentBiome = 0;
+
+        function swapBiome() {
+            currentBiome = (currentBiome + 1) % biomes.length;
+            biomeUI.innerText = biomes[currentBiome].name;
+            regenerateResources();
+        }
+
+        function regenerateResources() {
+            mapStructures = mapStructures.filter(s => s.type === 'lake' || s.type === 'wall' || s.type === 'tower' || s.type === 'playerWall');
+            for (let i = 0; i < 350; i++) {
+                const rx = Math.random() * (WORLD_WIDTH - 50);
+                const ry = Math.random() * (WORLD_HEIGHT - 50);
+                const rand = Math.random();
+                let rType = rand > 0.5 ? 'tree' : (rand > 0.2 ? 'rock' : 'berry');
+                const size = Math.random() * 20 + 30;
+                let durability = rType === 'tree' ? 5 : (rType === 'rock' ? 6 : 4);
+                mapStructures.push(new Structure(rx, ry, size, size, rType, durability));
+            }
+        }
+
+        class Camera {
+            constructor(width, height) {
+                this.x = 0;
+                this.y = 0;
+                this.width = width;
+                this.height = height;
+            }
+            follow(target) {
+                this.x = target.x - this.width / 2 + target.width / 2;
+                this.y = target.y - this.height / 2 + target.height / 2;
+                this.x = Math.max(0, Math.min(WORLD_WIDTH - this.width, this.x));
+                this.y = Math.max(0, Math.min(WORLD_HEIGHT - this.height, this.y));
+            }
+        }
+
+        let camera;
+
+        function checkCollision(rect1, rect2) {
+            return rect1.x < rect2.x + rect2.width &&
+                   rect1.x + rect1.width > rect2.x &&
+                   rect1.y < rect2.y + rect2.height &&
+                   rect1.y + rect1.height > rect2.y;
+        }
+
+        function drawHealthBar(x, y, width, health, maxHealth) {
+            const barWidth = width;
+            const barHeight = 6;
+            const healthRatio = Math.max(0, health / maxHealth);
+            ctx.fillStyle = '#c0392b';
+            ctx.fillRect(x - camera.x, y - camera.y - 12, barWidth, barHeight);
+            ctx.fillStyle = '#2ecc71';
+            ctx.fillRect(x - camera.x, y - camera.y - 12, barWidth * healthRatio, barHeight);
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(x - camera.x, y - camera.y - 12, barWidth, barHeight);
+        }
+
+        function gainXp(amount) {
+            playerStats.xp += amount;
+            if (playerStats.xp >= playerStats.maxXp) {
+                playerStats.xp -= playerStats.maxXp;
+                playerStats.level++;
+                playerStats.maxXp = Math.floor(playerStats.maxXp * 1.3);
+                isPaused = true;
+                upgradeMenu.style.display = 'flex';
+            }
+            lvlUI.innerText = playerStats.level;
+            xpUI.innerText = `${Math.floor(playerStats.xp)}/${playerStats.maxXp}`;
+        }
+
+        window.applyUpgrade = function(type) {
+            if (type === 'speed') localPlayer.baseSpeed += 30;
+            if (type === 'health') {
+                localPlayer.maxHealth += 50;
+                localPlayer.health = localPlayer.maxHealth;
+            }
+            if (type === 'pet') playerStats.petAttackSpeed = Math.max(0.3, playerStats.petAttackSpeed - 0.2);
+            
+            isPaused = false;
+            upgradeMenu.style.display = 'none';
+        }
+
+        class Player {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.width = 32;
+                this.height = 32;
+                this.baseSpeed = 250;
+                this.color = '#3498db';
+                this.maxHealth = 100;
+                this.health = 100;
+                this.hunger = 100;
+            }
+
+            update(deltaTime, structures) {
+                this.hunger -= deltaTime * 1.5;
+                if (this.hunger <= 0) {
+                    this.hunger = 0;
+                    this.health -= deltaTime * 5;
+                }
+                
+                if (this.health <= 0) {
+                    this.maxHealth = 100;
+                    this.health = 100;
+                    this.hunger = 100;
+                    this.baseSpeed = 250;
+                    playerStats = { level: 1, xp: 0, maxXp: 100, petAttackSpeed: 1.5 };
+                    lvlUI.innerText = playerStats.level;
+                    xpUI.innerText = `0/100`;
+                    equippedPets = [new Pet(this.x - 40, this.y, this, 'Moss Golem', '#2ecc71', 'projectile')];
+                    this.x = WORLD_WIDTH / 2;
+                    this.y = WORLD_HEIGHT / 2;
+                }
+
+                hpUI.innerText = Math.floor(this.health);
+                foodUI.innerText = Math.floor(this.hunger);
+
+                let inWater = false;
+                for (let struct of structures) {
+                    if (struct.type === 'lake' && checkCollision(this, struct)) {
+                        inWater = true;
+                        break;
+                    }
+                }
+
+                let currentSpeed = inWater ? this.baseSpeed * 1.6 : this.baseSpeed;
+                let moveX = 0;
+                let moveY = 0;
+
+                if (keys.w) moveY -= 1;
+                if (keys.s) moveY += 1;
+                if (keys.a) moveX -= 1;
+                if (keys.d) moveX += 1;
+
+                if (moveX !== 0 && moveY !== 0) {
+                    moveX *= 0.7071;
+                    moveY *= 0.7071;
+                }
+
+                this.x += moveX * currentSpeed * deltaTime;
+                for (let struct of structures) {
+                    if (checkCollision(this, struct) && struct.type !== 'lake') {
+                        this.x -= moveX * currentSpeed * deltaTime;
+                        struct.onInteract(this);
+                        break;
+                    }
+                }
+
+                this.y += moveY * currentSpeed * deltaTime;
+                for (let struct of structures) {
+                    if (checkCollision(this, struct) && struct.type !== 'lake') {
+                        this.y -= moveY * currentSpeed * deltaTime;
+                        struct.onInteract(this);
+                        break;
+                    }
+                }
+
+                this.x = Math.max(0, Math.min(WORLD_WIDTH - this.width, this.x));
+                this.y = Math.max(0, Math.min(WORLD_HEIGHT - this.height, this.y));
+            }
+
+            draw() {
+                ctx.fillStyle = this.color;
+                ctx.fillRect(this.x - camera.x, this.y - camera.y, this.width, this.height);
+                ctx.strokeStyle = '#e74c3c';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(this.x - camera.x, this.y - camera.y, this.width, this.height);
+                drawHealthBar(this.x, this.y, this.width, this.health, this.maxHealth);
+            }
+        }
+
+        class Pet {
+            constructor(x, y, owner, name, color, ability) {
+                this.x = x;
+                this.y = y;
+                this.width = 28;
+                this.height = 28;
+                this.speed = 190;
+                this.owner = owner;
+                this.name = name;
+                this.color = color;
+                this.ability = ability;
+                this.followDistance = 60 + Math.random() * 30;
+                this.attackCooldown = 0;
+            }
+
+            update(deltaTime) {
+                const dx = this.owner.x - this.x;
+                const dy = this.owner.y - this.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance > this.followDistance) {
+                    this.x += (dx / distance) * this.speed * deltaTime;
+                    this.y += (dy / distance) * this.speed * deltaTime;
+                }
+
+                this.attackCooldown -= deltaTime;
+                if (this.attackCooldown <= 0) {
+                    let target = null;
+                    let closestDist = 350;
+                    for (let enemy of enemies) {
+                        let edx = enemy.x - this.x;
+                        let edy = enemy.y - this.y;
+                        let edist = Math.sqrt(edx * edx + edy * edy);
+                        if (edist < closestDist) {
+                            closestDist = edist;
+                            target = enemy;
+                        }
+                    }
+
+                    if (target) {
+                        projectiles.push(new Projectile(this.x + this.width/2, this.y + this.height/2, target, this.ability));
+                        this.attackCooldown = playerStats.petAttackSpeed;
+                    }
+                }
+            }
+
+            draw() {
+                if (this.x + this.width < camera.x || this.x > camera.x + camera.width ||
+                    this.y + this.height < camera.y || this.y > camera.y + camera.height) {
+                    return;
+                }
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x - camera.x + this.width/2, this.y - camera.y + this.height/2, this.width/2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+        }
+
+        class WildPet {
+            constructor(x, y, name, color, ability) {
+                this.x = x;
+                this.y = y;
+                this.width = 28;
+                this.height = 28;
+                this.name = name;
+                this.color = color;
+                this.ability = ability;
+                this.speed = 50;
+                this.wanderTimer = 0;
+                this.vx = 0;
+                this.vy = 0;
+            }
+
+            update(deltaTime) {
+                this.wanderTimer -= deltaTime;
+                if (this.wanderTimer <= 0) {
+                    const angle = Math.random() * Math.PI * 2;
+                    this.vx = Math.cos(angle) * this.speed;
+                    this.vy = Math.sin(angle) * this.speed;
+                    this.wanderTimer = 3 + Math.random() * 3;
+                }
+
+                this.x += this.vx * deltaTime;
+                this.y += this.vy * deltaTime;
+                this.x = Math.max(0, Math.min(WORLD_WIDTH - this.width, this.x));
+                this.y = Math.max(0, Math.min(WORLD_HEIGHT - this.height, this.y));
+            }
+
+            draw() {
+                if (this.x + this.width < camera.x || this.x > camera.x + camera.width ||
+                    this.y + this.height < camera.y || this.y > camera.y + camera.height) {
+                    return;
+                }
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x - camera.x + this.width/2, this.y - camera.y + this.height/2, this.width/2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#f1c40f';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                ctx.fillStyle = '#f1c40f';
+                ctx.font = '10px sans-serif';
+                ctx.fillText(this.name, this.x - camera.x - 5, this.y - camera.y - 6);
+            }
+        }
+
+        class Projectile {
+            constructor(x, y, target, type) {
+                this.x = x;
+                this.y = y;
+                this.width = 10;
+                this.height = 10;
+                this.speed = 450;
+                this.target = target;
+                this.active = true;
+                this.type = type;
+                this.damage = type === 'fire' ? 30 : (type === 'frost' ? 18 : 22);
+            }
+
+            update(deltaTime) {
+                if (!this.target || this.target.health <= 0) {
+                    this.active = false;
+                    return;
+                }
+
+                const dx = (this.target.x + this.target.width/2) - this.x;
+                const dy = (this.target.y + this.target.height/2) - this.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist < 15) {
+                    this.target.health -= this.damage;
+                    if (this.type === 'frost') {
+                        this.target.speed = Math.max(20, this.target.speed * 0.6);
+                    }
+                    this.active = false;
+                    return;
+                }
+
+                this.x += (dx / dist) * this.speed * deltaTime;
+                this.y += (dy / dist) * this.speed * deltaTime;
+            }
+
+            draw() {
+                ctx.fillStyle = this.type === 'fire' ? '#e74c3c' : (this.type === 'frost' ? '#3498db' : '#f1c40f');
+                ctx.beginPath();
+                ctx.arc(this.x - camera.x, this.y - camera.y, this.width/2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        class Enemy {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.width = 36;
+                this.height = 36;
+                this.speed = 75; 
+                this.color = '#c0392b';
+                this.aggroRange = 600;
+                this.maxHealth = 45; 
+                this.health = 45;
+                this.xpReward = 40;
+            }
+
+            update(deltaTime, target, structures) {
+                const dx = target.x - this.x;
+                const dy = target.y - this.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance < this.aggroRange && distance > 0) {
+                    let moveX = (dx / distance) * this.speed * deltaTime;
+                    let moveY = (dy / distance) * this.speed * deltaTime;
+
+                    this.x += moveX;
+                    for (let struct of structures) {
+                        if (['wall', 'playerWall', 'tower', 'lake'].includes(struct.type) && checkCollision(this, struct)) {
+                            this.x -= moveX;
+                            break;
+                        }
+                    }
+
+                    this.y += moveY;
+                    for (let struct of structures) {
+                        if (['wall', 'playerWall', 'tower', 'lake'].includes(struct.type) && checkCollision(this, struct)) {
+                            this.y -= moveY;
+                            break;
+                        }
+                    }
+                }
+
+                if (checkCollision(this, target)) {
+                    target.health -= 15 * deltaTime;
+                }
+            }
+
+            draw() {
+                if (this.x + this.width < camera.x || this.x > camera.x + camera.width ||
+                    this.y + this.height < camera.y || this.y > camera.y + camera.height) {
+                    return;
+                }
+                ctx.fillStyle = this.color;
+                ctx.fillRect(this.x - camera.x, this.y - camera.y, this.width, this.height);
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(this.x - camera.x, this.y - camera.y, this.width, this.height);
+                drawHealthBar(this.x, this.y, this.width, this.health, this.maxHealth);
+            }
+        }
+
+        class Structure {
+            constructor(x, y, width, height, type, durability = 5) {
+                this.x = x;
+                this.y = y;
+                this.width = width;
+                this.height = height;
+                this.type = type;
+                this.durability = durability;
+                this.harvestDelay = 0;
+            }
+
+            update(deltaTime) {
+                if (this.harvestDelay > 0) this.harvestDelay -= deltaTime;
+            }
+
+            onInteract(player) {
+                if (this.harvestDelay <= 0) {
+                    if (this.type === 'tree') {
+                        inventory.wood += 1;
+                        woodUI.innerText = inventory.wood;
+                        this.durability--;
+                        this.harvestDelay = 0.4;
+                        gainXp(2);
+                    } else if (this.type === 'rock') {
+                        inventory.stone += 1;
+                        stoneUI.innerText = inventory.stone;
+                        this.durability--;
+                        this.harvestDelay = 0.4;
+                        gainXp(2);
+                    } else if (this.type === 'berry') {
+                        player.hunger = Math.min(100, player.hunger + 25);
+                        this.durability--;
+                        this.harvestDelay = 0.5;
+                        gainXp(5);
+                    }
+                }
+            }
+
+            draw() {
+                if (this.x + this.width < camera.x || this.x > camera.x + camera.width ||
+                    this.y + this.height < camera.y || this.y > camera.y + camera.height) {
+                    return;
+                }
+
+                if (this.type === 'tree') ctx.fillStyle = biomes[currentBiome].tree;
+                else if (this.type === 'rock') ctx.fillStyle = biomes[currentBiome].rock;
+                else if (this.type === 'berry') ctx.fillStyle = '#e67e22';
+                else if (this.type === 'lake') ctx.fillStyle = biomes[currentBiome].water;
+                else if (this.type === 'wall') ctx.fillStyle = '#95a5a6';
+                else if (this.type === 'tower') ctx.fillStyle = '#7f8c8d';
+                else if (this.type === 'playerWall') ctx.fillStyle = '#bdc3c7'; 
+
+                ctx.fillRect(this.x - camera.x, this.y - camera.y, this.width, this.height);
+                
+                if (this.type === 'tree' || this.type === 'rock' || this.type === 'berry') {
+                    ctx.strokeStyle = this.type === 'berry' ? '#d35400' : '#f1c40f';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(this.x - camera.x, this.y - camera.y, this.width, this.height);
+                } else if (this.type === 'tower' || this.type === 'wall' || this.type === 'playerWall') {
+                    ctx.strokeStyle = '#2c3e50';
+                    ctx.lineWidth = 3;
+                    ctx.strokeRect(this.x - camera.x, this.y - camera.y, this.width, this.height);
+                }
+            }
+        }
+
+        let localPlayer;
+        let equippedPets = [];
+        let wildPets = [];
+        let mapStructures = [];
+        let enemies = [];
+        let projectiles = [];
+        let enemySpawnTimer = 0;
+
+        function initGame() {
+            resizeCanvas();
+            camera = new Camera(canvas.width, canvas.height);
+            localPlayer = new Player(WORLD_WIDTH / 2, WORLD_HEIGHT / 2);
+            equippedPets.push(new Pet(localPlayer.x - 40, localPlayer.y, localPlayer, 'Moss Golem', '#2ecc71', 'projectile'));
+            
+            regenerateResources();
+
+            for (let i = 0; i < 20; i++) {
+                const fx = Math.random() * (WORLD_WIDTH - 400);
+                const fy = Math.random() * (WORLD_HEIGHT - 400);
+                mapStructures.push(new Structure(fx, fy, 150, 20, 'wall'));
+                mapStructures.push(new Structure(fx, fy + 150, 150, 20, 'wall'));
+                mapStructures.push(new Structure(fx, fy, 20, 170, 'wall'));
+                mapStructures.push(new Structure(fx + 130, fy, 20, 170, 'wall'));
+                mapStructures.push(new Structure(fx - 20, fy - 20, 60, 60, 'tower'));
+                mapStructures.push(new Structure(fx + 110, fy + 130, 60, 60, 'tower'));
+            }
+
+            for (let i = 0; i < 20; i++) {
+                enemies.push(new Enemy(Math.random() * WORLD_WIDTH, Math.random() * WORLD_HEIGHT));
+            }
+
+            for (let i = 0; i < 10; i++) {
+                const types = [
+                    { name: 'Flame Fox', color: '#e67e22', ability: 'fire' },
+                    { name: 'Frost Wolf', color: '#3498db', ability: 'frost' },
+                    { name: 'Vine Sprite', color: '#27ae60', ability: 'projectile' }
+                ];
+                const t = types[Math.floor(Math.random() * types.length)];
+                wildPets.push(new WildPet(Math.random() * WORLD_WIDTH, Math.random() * WORLD_HEIGHT, t.name, t.color, t.ability));
+            }
+        }
+
+        let lastTime = 0;
+
+        function loop(timestamp) {
+            const deltaTime = (timestamp - lastTime) / 1000;
+            lastTime = timestamp;
+            const safeDeltaTime = Math.min(deltaTime, 0.1);
+
+            if (isPlaying && !isPaused) {
+                biomeTimer -= safeDeltaTime;
+                let minutes = Math.floor(biomeTimer / 60);
+                let seconds = Math.floor(biomeTimer % 60);
+                biomeTimerUI.innerText = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}s`;
+
+                if (biomeTimer <= 0) {
+                    swapBiome();
+                    biomeTimer = 300;
+                }
+
+                if (keys.b && !bKeyWasDown) {
+                    swapBiome();
+                }
+                bKeyWasDown = keys.b;
+
+                if (keys.e && !eKeyWasDown) {
+                    for (let i = wildPets.length - 1; i >= 0; i--) {
+                        let wp = wildPets[i];
+                        let dx = wp.x - localPlayer.x;
+                        let dy = wp.y - localPlayer.y;
+                        let dist = Math.sqrt(dx * dx + dy * dy);
+                        if (dist < 70 && equippedPets.length < 3) {
+                            equippedPets.push(new Pet(wp.x, wp.y, localPlayer, wp.name, wp.color, wp.ability));
+                            wildPets.splice(i, 1);
+                            break;
+                        }
+                    }
+                }
+                eKeyWasDown = keys.e;
+
+                localPlayer.update(safeDeltaTime, mapStructures);
+                equippedPets.forEach(pet => pet.update(safeDeltaTime));
+                wildPets.forEach(wp => wp.update(safeDeltaTime));
+                camera.follow(localPlayer);
+
+                mapStructures.forEach(struct => struct.update(safeDeltaTime));
+                mapStructures = mapStructures.filter(s => s.durability > 0);
+
+                projectiles.forEach(proj => proj.update(safeDeltaTime));
+                projectiles = projectiles.filter(p => p.active);
+
+                for (let i = enemies.length - 1; i >= 0; i--) {
+                    enemies[i].update(safeDeltaTime, localPlayer, mapStructures);
+                    if (enemies[i].health <= 0) {
+                        gainXp(enemies[i].xpReward);
+                        enemies.splice(i, 1);
+                    }
+                }
+
+                enemySpawnTimer -= safeDeltaTime;
+                if (enemySpawnTimer <= 0 && enemies.length < 30) {
+                    enemies.push(new Enemy(Math.random() * WORLD_WIDTH, Math.random() * WORLD_HEIGHT));
+                    enemySpawnTimer = 3;
+                }
+
+                ctx.fillStyle = biomes[currentBiome].bg;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+                ctx.lineWidth = 1;
+                const startX = Math.floor(camera.x / 40) * 40;
+                const startY = Math.floor(camera.y / 40) * 40;
+                for(let x = startX; x < camera.x + canvas.width; x += 40) {
+                    ctx.beginPath(); ctx.moveTo(x - camera.x, 0); ctx.lineTo(x - camera.x, canvas.height); ctx.stroke();
+                }
+                for(let y = startY; y < camera.y + canvas.height; y += 40) {
+                    ctx.beginPath(); ctx.moveTo(0, y - camera.y); ctx.lineTo(canvas.width, y - camera.y); ctx.stroke();
+                }
+
+                mapStructures.forEach(struct => struct.draw());
+                wildPets.forEach(wp => wp.draw());
+                projectiles.forEach(proj => proj.draw());
+                enemies.forEach(enemy => enemy.draw());
+                equippedPets.forEach(pet => pet.draw());
+                localPlayer.draw();
+            } else if (!isPlaying) {
+                ctx.fillStyle = '#1a1a1a';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+
+            requestAnimationFrame(loop);
+        }
+
+        initGame();
+        requestAnimationFrame((timestamp) => {
+            lastTime = timestamp;
+            requestAnimationFrame(loop);
+        });
+    </script>
+</body>
+</html>
